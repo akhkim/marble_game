@@ -12,25 +12,44 @@ on:
   workflow_dispatch:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
-jobs:
-  # This workflow contains a single job called "build"
-  build:
-    # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
       - uses: actions/checkout@v4
 
-      # Runs a single command using the runners shell
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
       - name: build
         run: |
           yarn
           npx update-browserslist-db@latest
           yarn build
-      - name: deploy
-        uses: peaceiris/actions-gh-pages@v4
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
